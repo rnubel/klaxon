@@ -8,10 +8,8 @@ Gem::Specification.new do |s|
   s.authors     = ["Robert Nubel"]
   s.email       = ["rnubel@enovafinancial.com"]
   s.homepage    = ""
-  s.summary     = %q{TODO: Write a gem summary}
-  s.description = %q{TODO: Write a gem description}
-
-  s.rubyforge_project = "klaxon"
+  s.summary     = %q{Notification and alert library for Rails-like projects.}
+  s.description = %q{Supports wrapping code that you want to be alerted of failures in, as well as sending notifications through the same mechanism.}
 
   s.files         = `git ls-files`.split("\n")
   s.test_files    = `git ls-files -- {test,spec,features}/*`.split("\n")

@@ -4,6 +4,9 @@ RSpec.configure do |c|
   c.mock_with :mocha
 end
 
+Mail.defaults do
+  delivery_method :test
+end
 
 class Alert
   def self.create(*args)

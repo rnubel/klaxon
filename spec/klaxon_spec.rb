@@ -139,7 +139,7 @@ describe Klaxon do
   end
 
   describe Klaxon::NotificationJob do
-    let(:alert) { stub("alert", :id => 5, :category => "test", :severity => "test") }
+    let(:alert) { stub("alert", :id => 5, :category => "test", :severity => "test", :message => "test", :exception => nil, :backtrace => nil) }
    
     after(:each) { Klaxon::NotificationJob.perform(5) } 
 

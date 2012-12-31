@@ -11,7 +11,6 @@ gem 'klaxon'
 
 In e.g. `config/initializers/klaxon.rb`:
 <pre>
-
 Klaxon.configure do |c|
   c.notify 'you@gmail.com', :of => { :category => /user_registrations/ }, :by => :email
   c.notify '17735555555', :of => { :severity => /critical/ }, :by => :text_message

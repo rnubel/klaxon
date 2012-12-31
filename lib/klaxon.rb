@@ -23,7 +23,7 @@ module Klaxon
       :category => options[:category].to_s || "uncategorized"
     )
 
-    Resque.enqueue(EmailAlertJob, alert.id)
+    Resque.enqueue(NotificationJob, alert.id)
 
     alert
   end
@@ -52,22 +52,25 @@ module Klaxon
     end
   end
 
-  # Determine the recipients for a particular alert.
+  # Determine the recipients per notification method for a particular alert.
   def self.recipients(alert)
     # Each recipient group should look like (where the filter values are regexps):
     # - category: .*
     # severity: (critical|high)
     # recipients:
     # - rnubel@test.com
-    rec_lists = config.recipient_groups.collect do |group|
-      if alert.category =~ Regexp.new(group[:category]) && alert.severity =~ Regexp.new(group[:severity])
-        group[:recipients]
-      else
-        next
+    # notifier: email
+    recipients_per_notifier = config.recipient_groups.inject({}) do |rec_lists, group|
+      if alert_matches_group(alert, group)
+        notifier = group[:notifier] || Klaxon::Notifiers.default_notifier
+        rec_lists[notifier] ||= []
+        rec_lists[notifier] += group[:recipients]
       end
+
+      rec_lists
     end
 
-    rec_lists.flatten.compact.uniq # Combine the lists and filter duplicates
+    recipients_per_notifier.each do |k, v| v.uniq!; v.sort! end # Filter duplicates and sort for sanity
   end
 
   def self.configure
@@ -80,15 +83,30 @@ module Klaxon
   end
 
   # Job to notify admins via email of a problem.
-  class EmailAlertJob
+  class NotificationJob
+    class NotifierNotFound < StandardError; end
     @queue = :high
 
-    # Look up the given alert and email it out.
-    # @param [Integer] alert_id ID of the alert to email about.
+    # Look up the given alert and notify recipients of it.
     def self.perform(alert_id)
-      KlaxonMailer.alert(Alert.find(alert_id)).deliver
+      alert = Alert.find(alert_id) 
+      recipients = Klaxon.recipients(alert)
+
+      recipients.each do |notifier_key, recipient_list|
+        raise NotifierNotFound unless notifier = Klaxon::Notifiers[notifier_key]
+        notifier.notify(recipient_list, alert)
+      end
+      #KlaxonMailer.alert().deliver
     rescue ActiveRecord::RecordNotFound
       Alert.logger.error { "Raised alert with ID=#{alert_id} but couldn't find that alert." }
+    rescue NotifierNotFound
+      Alert.logger.error { "Raised alert with ID=#{alert_id} for notifier #{notifier_key} but couldn't find that notifier." }
     end
+  end
+
+  private
+  def self.alert_matches_group(alert, group)
+    alert.category =~ Regexp.new(group[:category] || '.*') && 
+    alert.severity =~ Regexp.new(group[:severity] || '.*')
   end
 end

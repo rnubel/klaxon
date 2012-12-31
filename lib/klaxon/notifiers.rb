@@ -17,3 +17,7 @@ module Klaxon
     end
   end
 end
+
+Dir[File.expand_path("../notifiers/*.rb", __FILE__)].each do |f|
+  require f
+end

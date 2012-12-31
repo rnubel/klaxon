@@ -91,16 +91,20 @@ describe Klaxon do
     before(:each) {
       Klaxon.config.stubs(:recipient_groups).returns(
         [{:category => /.*/, :severity => /.*/, :recipients => ["x@y.com", "z@w.com"]},
-         {:category => /^test$/, :severity => /(high|low)/, :recipients => ["a@b.com", "z@w.com"]}]
+         {:category => /^test$/, :severity => /(high|low)/, :recipients => ["a@b.com", "z@w.com"], :notifier => :email},
+         {:category => /^test$/, :severity => /(high|low)/, :recipients => ["1234567890"], :notifier => :text_message}]
       )
     }
 
-    it "should find a single group which matches the pattern" do
-      Klaxon.recipients(stub('alert', :category => "whee", :severity => "test")).should =~ ["x@y.com", "z@w.com"]
+    context "when given a pattern matching only one group" do
+      it "returns the group in a hash with the notifier as the key" do
+        Klaxon.recipients(stub('alert', :category => "whee", :severity => "test")).should == { :email => ["x@y.com", "z@w.com"] }
+      end
     end
 
     it "should merge all groups which match the pattern" do
-      Klaxon.recipients(stub('alert', :category => "test", :severity => "high")).should =~ ["a@b.com", "x@y.com", "z@w.com"]
+      Klaxon.recipients(stub('alert', :category => "test", :severity => "high")).should == { :email => ["a@b.com", "x@y.com", "z@w.com"],
+                                                                                             :text_message => ["1234567890"] }
     end
   end
 
@@ -129,8 +133,36 @@ describe Klaxon do
       end
     end
 
-    it "should enqueue an email job in Resque" do
-      Resque.expects(:enqueue).with(Klaxon::EmailAlertJob, is_a(Integer))
+    it "should enqueue a notification job in Resque" do
+      Resque.expects(:enqueue).with(Klaxon::NotificationJob, is_a(Integer))
+    end
+  end
+
+  describe Klaxon::NotificationJob do
+    let(:alert) { stub("alert", :id => 5, :category => "test", :severity => "test") }
+   
+    after(:each) { Klaxon::NotificationJob.perform(5) } 
+
+    it "locates the alert by id" do
+      Alert.expects(:find).with(5).returns(alert)
+    end
+
+    it "looks up how to notify for a given alert" do
+      Alert.expects(:find).with(5).returns(alert)
+
+      Klaxon.expects(:recipients).with(alert).returns(
+        :email => ["a@b.com"]
+      )
+    end
+
+    it "uses the notifier to alert recipients" do
+      Alert.expects(:find).with(5).returns(alert)
+
+      Klaxon.expects(:recipients).with(alert).returns(
+        :email => ["a@b.com"]
+      )
+
+      Klaxon::Notifiers[:email].expects(:notify).with(["a@b.com"], alert)
     end
   end
 end

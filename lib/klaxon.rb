@@ -1,4 +1,5 @@
 require "klaxon/version"
+require "klaxon/notifiers"
 require "klaxon/config"
 
 require "active_record/errors" 
@@ -70,6 +71,7 @@ module Klaxon
   end
 
   def self.configure
+    @config = nil
     yield config
   end
 

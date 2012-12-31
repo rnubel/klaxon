@@ -44,12 +44,46 @@ describe Klaxon do
   describe "being configured" do
     let(:groups) { [] }
 
-    it "sets the list of recipient groups directly" do
+    it "wipes old configuration" do
       Klaxon.configure do |c|
-        c.recipient_groups = groups
+        c.recipient_groups = []
       end
 
-      Klaxon.config.recipient_groups.should == groups
+      Klaxon.configure { }
+
+      Klaxon.config.recipient_groups.should be_nil
+    end
+
+    describe "#recipient_groups=" do
+      it "can set the list of recipient groups directly" do
+        Klaxon.configure do |c|
+          c.recipient_groups = groups
+        end
+
+        Klaxon.config.recipient_groups.should == groups
+      end
+    end
+
+    describe "#notify" do
+      it "can create a notification group idiomatically" do
+        Klaxon.configure do |c|
+          c.notify ["rnubel@test.com"], :of => { :severity => /critical/ }, :by => :email
+        end
+
+        Klaxon.config.recipient_groups.should == [
+          { :severity => /critical/, :recipients => ["rnubel@test.com"], :notifier => :email } 
+        ]
+      end
+
+      it "assumes email as the default notifier if not specified" do
+        Klaxon.configure do |c|
+          c.notify ["rnubel@test.com"], :of => { :severity => /critical/ }
+        end
+
+        Klaxon.config.recipient_groups.should == [
+          { :severity => /critical/, :recipients => ["rnubel@test.com"], :notifier => :email } 
+        ]
+      end
     end
   end
 

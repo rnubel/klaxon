@@ -9,6 +9,11 @@ In your Gemfile:
 gem 'klaxon'
 </pre>
 
+Either create an Alert model by hand, or use the provided rake task:
+<pre>
+rake klaxon:install
+</pre>
+
 In e.g. `config/initializers/klaxon.rb`:
 <pre>
 Klaxon.configure do |c|
@@ -17,6 +22,7 @@ Klaxon.configure do |c|
 end
 </pre>
 
+## Usage
 In anywhere you want to send yourself a notification:
 <pre>
 Klaxon.notify :category => :user_registrations,

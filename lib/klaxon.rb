@@ -1,6 +1,7 @@
 require "klaxon/version"
 require "klaxon/notifiers"
 require "klaxon/config"
+require "klaxon/railtie"
 
 require "active_record/errors" 
 

@@ -1,3 +1,4 @@
+require 'logger'
 require File.expand_path("../../lib/klaxon", __FILE__)
 
 RSpec.configure do |c|
@@ -19,6 +20,10 @@ class Alert
 
   def self.find(*args)
     self.new
+  end
+
+  def self.logger
+    @logger ||= Logger.new($stdout)
   end
 end
 

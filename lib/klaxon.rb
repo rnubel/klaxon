@@ -96,6 +96,7 @@ module Klaxon
       recipients.each do |notifier_key, recipient_list|
         raise NotifierNotFound unless notifier = Klaxon::Notifiers[notifier_key]
         notifier.notify(recipient_list, alert)
+        Alert.logger.info { "Notification sent to #{recipient_list.inspect} via #{notifier_key} for alert #{alert.id}." }
       end
       #KlaxonMailer.alert().deliver
     rescue ActiveRecord::RecordNotFound

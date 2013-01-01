@@ -1,6 +1,6 @@
 module Klaxon
   class Config
-    attr_accessor :recipient_groups 
+    attr_accessor :recipient_groups, :from_address
 
     # notify [r1, r2], :of => filters, :by => notifier 
     def notify(recipients, parameters)

@@ -15,7 +15,7 @@ Backtrace: #{alert.backtrace}
         ";
         
         Mail.deliver do
-          from    'you@you.com'
+          from    Klaxon.config.from_address 
           to      recipients.join(", ")
           subject "[Klaxon] [#{alert.severity}] #{alert.message} (#{alert.category})"
           body    _body

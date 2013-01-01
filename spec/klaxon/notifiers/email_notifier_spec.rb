@@ -8,6 +8,14 @@ describe Klaxon::Notifiers::EmailNotifier do
   }
 
   describe "notifying" do
+    let(:origin_email) { "test@test.com" }
+
+    before {
+      Klaxon.configure do |c|
+        c.from_address = "test@test.com"
+      end
+    }
+
     it "uses the Mail gem to send an alert" do
       described_class.notify(["a@b.com"], alert)
     end
@@ -31,6 +39,10 @@ describe Klaxon::Notifiers::EmailNotifier do
         body.should =~ /category/
         body.should =~ /exception/
         body.should =~ /backtrace/
+      end
+
+      it "is from the configured origin email" do
+        message.from.should == [origin_email]
       end
     end
   end

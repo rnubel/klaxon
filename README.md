@@ -34,7 +34,7 @@ Klaxon.notify :category => :user_registrations,
               :message => "User #{user.name} registered at #{Time.now}!"
 </pre>
 
-If anywhere you want to sound the alarm:
+If you want to sound the alarm:
 <pre>
 Klaxon.raise_alert  :category => :user_registrations,
                     :severity => :critical,

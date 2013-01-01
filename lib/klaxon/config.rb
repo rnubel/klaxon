@@ -6,6 +6,7 @@ module Klaxon
     def notify(recipients, parameters)
       self.recipient_groups ||= []
 
+      recipients = [recipients] unless recipients.is_a? Array
       filters   = parameters[:of] || {}
       notifier  = parameters[:by] || Klaxon::Notifiers.default_notifier
 

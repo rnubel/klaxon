@@ -9,10 +9,16 @@ Mail.defaults do
 end
 
 class Alert
+  def id
+    1
+  end
+
   def self.create(*args)
+    self.new
   end
 
   def self.find(*args)
+    self.new
   end
 end
 

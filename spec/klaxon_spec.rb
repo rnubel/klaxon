@@ -9,7 +9,7 @@ describe Klaxon do
 
   context "when an exception has already been rescued" do
     it "raises an alert" do
-      Alert.expects(:create)
+      Alert.expects(:create).returns(stub("alert", :id => 1))
 
       begin
         raise "Testing"
@@ -84,6 +84,16 @@ describe Klaxon do
           { :severity => /critical/, :recipients => ["rnubel@test.com"], :notifier => :email } 
         ]
       end
+
+      it "converts a single recipient into an array of that single recipient" do
+        Klaxon.configure do |c|
+          c.notify "rnubel@test.com", :of => { :severity => /critical/ }, :by => :email
+        end
+
+        Klaxon.config.recipient_groups.should == [
+          { :severity => /critical/, :recipients => ["rnubel@test.com"], :notifier => :email } 
+        ]
+      end
     end
   end
 
@@ -129,7 +139,7 @@ describe Klaxon do
           :severity   =>  alert_options[:severity].to_s,
           :message    =>  alert_options[:message].to_s,
           :category   =>  alert_options[:category].to_s 
-        ))
+        )).returns(stub("alert", :id => 1))
       end
     end
 

@@ -1,3 +1,5 @@
+require 'rails/railtie'
+
 module Klaxon
   class Railtie < Rails::Railtie
     rake_tasks do

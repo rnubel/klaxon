@@ -39,9 +39,13 @@ Klaxon.notify :category => :user_registrations,
 
 If you want to sound the alarm:
 <pre>
-Klaxon.raise_alert  :category => :user_registrations,
-                    :severity => :critical,
-                    :message => "An error occurred when a user tried to sign up!"
+begin
+  # ...
+rescue => e
+  Klaxon.raise_alert  e, :category => :user_registrations,
+                         :severity => :critical,
+                         :message => "An error occurred when a user tried to sign up!"
+end
 </pre>
 
 In any code you want to watch for explosions:

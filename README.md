@@ -1,7 +1,7 @@
 # Klaxon
-Klaxon is a library designed to simply the task of notifying interested parties about your site's operation. For example, you may already be tracking errors through [New Relic](http://www.newrelic.com), but not all errors are created equal -- undoubtedly there are parts of your site where an exception occuring is significantly more of a problem than a bored URL surfer visiting. Klaxon can help you be informed when these parts of your site break, or just when important events happen.
+Klaxon is a library designed to simply the task of notifying interested parties about your site's operation. You may already be tracking errors through [New Relic](http://www.newrelic.com), but not all errors are created equal -- there are probably parts of your site where an exception occuring is significantly more of a problem than a bored URL surfer visiting random links and throwing 404s. Klaxon can help you be informed when these parts of your site break, or when important events happen.
 
-Currently, Klaxon only supports notification via email.
+Currently, Klaxon works only in Rails 3, and supports notification via email.
 
 ## Installation
 Add Klaxon to your Gemfile:

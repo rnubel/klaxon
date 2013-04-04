@@ -29,8 +29,12 @@ module Klaxon
     alert
   end
 
-  # Synonym for raise_alert when no exception is involved.
+  # Synonyms for raise_alert when no exception is involved.
   def self.notify(options)
+    self.raise_alert(nil, {:severity => "notification"}.merge(options))
+  end
+
+  def self.warn!(options)
     self.raise_alert(nil, options)
   end
 
@@ -83,10 +87,14 @@ module Klaxon
     @config ||= Klaxon::Config.new
   end
 
+  def self.queue
+    @queue ||= config.queue
+  end
+
   # Job to notify admins via email of a problem.
   class NotificationJob
     class NotifierNotFound < StandardError; end
-    @queue = :high
+    @queue = Klaxon.queue
 
     # Look up the given alert and notify recipients of it.
     def self.perform(alert_id)

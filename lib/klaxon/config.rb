@@ -1,6 +1,6 @@
 module Klaxon
   class Config
-    attr_accessor :recipient_groups, :from_address
+    attr_accessor :queue, :recipient_groups, :from_address
 
     # notify [r1, r2], :of => filters, :by => notifier 
     def notify(recipients, parameters)
@@ -13,6 +13,10 @@ module Klaxon
       group_config = { :recipients  => recipients,
                        :notifier    => notifier}.merge(filters)
       self.recipient_groups.push(group_config)
+    end
+
+    def queue
+      @queue ||= :high
     end
   end
 end

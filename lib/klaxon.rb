@@ -4,6 +4,7 @@ require "klaxon/config"
 require "klaxon/railtie"
 
 require "active_record/errors" 
+require 'logger'
 
 # Library for escalating and logging errors.
 module Klaxon
@@ -24,7 +25,11 @@ module Klaxon
       :category => options[:category].to_s || "uncategorized"
     )
 
-    Resque.enqueue(NotificationJob, alert.id)
+    begin
+      Resque.enqueue(NotificationJob, alert.id)
+    rescue
+      logger.error "[Klaxon] Enqueuing alert job into Resque failed!"
+    end
 
     alert
   end
@@ -65,6 +70,8 @@ module Klaxon
     # recipients:
     # - rnubel@test.com
     # notifier: email
+    return {} unless config.recipient_groups
+
     recipients_per_notifier = config.recipient_groups.inject({}) do |rec_lists, group|
       if alert_matches_group(alert, group)
         notifier = group[:notifier] || Klaxon::Notifiers.default_notifier
@@ -91,26 +98,29 @@ module Klaxon
     @queue ||= config.queue
   end
 
+  def self.logger
+    @logger ||= config.logger
+  end
+
   # Job to notify admins via email of a problem.
   class NotificationJob
-    class NotifierNotFound < StandardError; end
     @queue = Klaxon.queue
 
     # Look up the given alert and notify recipients of it.
     def self.perform(alert_id)
-      alert = Alert.find(alert_id) 
+      alert = Alert.find(alert_id)
       recipients = Klaxon.recipients(alert)
 
       recipients.each do |notifier_key, recipient_list|
-        raise NotifierNotFound unless notifier = Klaxon::Notifiers[notifier_key]
-        notifier.notify(recipient_list, alert)
-        Alert.logger.info { "Notification sent to #{recipient_list.inspect} via #{notifier_key} for alert #{alert.id}." }
+        if notifier = Klaxon::Notifiers[notifier_key]
+          notifier.notify(recipient_list, alert)
+          Alert.logger.info { "Notification sent to #{recipient_list.inspect} via #{notifier_key} for alert #{alert.id}." }
+        else
+          Alert.logger.error { "Raised alert with ID=#{alert_id} for notifier #{notifier_key} but couldn't find that notifier." }
+        end
       end
-      #KlaxonMailer.alert().deliver
     rescue ActiveRecord::RecordNotFound
       Alert.logger.error { "Raised alert with ID=#{alert_id} but couldn't find that alert." }
-    rescue NotifierNotFound
-      Alert.logger.error { "Raised alert with ID=#{alert_id} for notifier #{notifier_key} but couldn't find that notifier." }
     end
   end
 

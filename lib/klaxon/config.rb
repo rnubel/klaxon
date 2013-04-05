@@ -1,6 +1,6 @@
 module Klaxon
   class Config
-    attr_accessor :queue, :recipient_groups, :from_address
+    attr_accessor :logger, :queue, :recipient_groups, :from_address
 
     # notify [r1, r2], :of => filters, :by => notifier 
     def notify(recipients, parameters)
@@ -17,6 +17,16 @@ module Klaxon
 
     def queue
       @queue ||= :high
+    end
+
+    def logger
+      @logger ||= Rails.logger
+    rescue NameError, NoMethodError => e
+      ok =  [ /^uninitialized constant Rails$/,
+              /^undefined method `logger'/
+            ].any?{|regex| e.message =~ regex }
+      raise unless ok
+      @logger ||= Logger.new($stderr)
     end
   end
 end

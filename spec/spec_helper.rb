@@ -1,4 +1,3 @@
-require 'logger'
 require File.expand_path("../../lib/klaxon", __FILE__)
 
 RSpec.configure do |c|

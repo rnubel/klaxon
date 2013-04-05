@@ -7,6 +7,17 @@ describe Klaxon do
       :category => :real_important_job   }
   end
 
+  before do
+    Klaxon.configure do |c|
+      c.from_address      = "webdude@example.net"
+      c.recipient_groups  = [
+        {:category => /.*/, :severity => /.*/, :recipients => ["x@y.com", "z@w.com"]},
+        {:category => /^test$/, :severity => /(high|low)/, :recipients => ["a@b.com", "z@w.com"], :notifier => :email},
+        {:category => /^test$/, :severity => /(high|low)/, :recipients => ["1234567890"], :notifier => :text_message}
+      ]
+    end
+  end
+
   context "when an exception has already been rescued" do
     it "raises an alert" do
       Alert.expects(:create).returns(stub("alert", :id => 1))
@@ -98,14 +109,6 @@ describe Klaxon do
   end
 
   context "deciding what recipients apply to a given alert" do
-    before(:each) {
-      Klaxon.config.stubs(:recipient_groups).returns(
-        [{:category => /.*/, :severity => /.*/, :recipients => ["x@y.com", "z@w.com"]},
-         {:category => /^test$/, :severity => /(high|low)/, :recipients => ["a@b.com", "z@w.com"], :notifier => :email},
-         {:category => /^test$/, :severity => /(high|low)/, :recipients => ["1234567890"], :notifier => :text_message}]
-      )
-    }
-
     context "when given a pattern matching only one group" do
       it "returns the group in a hash with the notifier as the key" do
         Klaxon.recipients(stub('alert', :category => "whee", :severity => "test")).should == { :email => ["x@y.com", "z@w.com"] }
@@ -118,6 +121,23 @@ describe Klaxon do
     end
   end
 
+  describe "synoynms for ::raise_alert" do
+    describe "::notify" do
+      it "calls raise_alert with notification as the default severity" do
+        Klaxon.expects(:raise_alert).with(nil, has_entries(:severity => "notification"))
+        Klaxon.notify({})
+      end
+    end
+
+    describe "::warn!" do
+      it "calls raise_alert with the same options as passed" do
+        opts = mock("options")
+        Klaxon.expects(:raise_alert).with(nil, opts)
+        Klaxon.warn!(opts)
+      end
+    end
+  end
+
   context "when raising an alarm" do
     let(:exception) do
       begin
@@ -127,7 +147,7 @@ describe Klaxon do
       end
     end
 
-    after(:each) do
+    let(:alert) do
       Klaxon.raise_alert(exception, alert_options)
     end
 
@@ -140,39 +160,49 @@ describe Klaxon do
           :message    =>  alert_options[:message].to_s,
           :category   =>  alert_options[:category].to_s 
         )).returns(stub("alert", :id => 1))
+        alert
       end
     end
 
     it "should enqueue a notification job in Resque" do
       Resque.expects(:enqueue).with(Klaxon::NotificationJob, is_a(Integer))
+      alert
     end
+
+    it "does not explode if Resque.enqueue fails" do
+      Resque.expects(:enqueue).raises("Blah")
+      expect { alert }.to_not raise_error
+    end
+
   end
 
   describe Klaxon::NotificationJob do
     let(:alert) { stub("alert", :id => 5, :category => "test", :severity => "test", :message => "test", :exception => nil, :backtrace => nil) }
-   
-    after(:each) { Klaxon::NotificationJob.perform(5) } 
 
     it "locates the alert by id" do
       Alert.expects(:find).with(5).returns(alert)
+      Klaxon::NotificationJob.perform(5)
     end
 
-    it "looks up how to notify for a given alert" do
+    it "uses the associated notifier to alert recipients" do
       Alert.expects(:find).with(5).returns(alert)
-
-      Klaxon.expects(:recipients).with(alert).returns(
-        :email => ["a@b.com"]
-      )
-    end
-
-    it "uses the notifier to alert recipients" do
-      Alert.expects(:find).with(5).returns(alert)
-
-      Klaxon.expects(:recipients).with(alert).returns(
-        :email => ["a@b.com"]
-      )
-
+      Klaxon.expects(:recipients).with(alert).returns( :email => ["a@b.com"] )
       Klaxon::Notifiers[:email].expects(:notify).with(["a@b.com"], alert)
+      Klaxon::NotificationJob.perform(5)
+    end
+
+    it "should raise an error for an unknown Notifier" do
+      Alert.expects(:find).with(5).returns(alert)
+      Klaxon.expects(:recipients).returns({:raven => "Cersei"})
+      Alert.logger.expects(:error)
+      Klaxon::NotificationJob.perform(5)
+    end
+
+    it "should not raise an exception if the alert isn't found (otherwise, possible recursion)" do
+      Alert.expects(:find).with(5).raises(ActiveRecord::RecordNotFound)
+      lambda {
+        Klaxon::NotificationJob.perform(5)
+      }.should_not raise_error
     end
   end
 end

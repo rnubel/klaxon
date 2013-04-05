@@ -1,7 +1,6 @@
 require "klaxon/version"
 require "klaxon/notifiers"
 require "klaxon/config"
-require "klaxon/railtie"
 
 require "active_record/errors" 
 require 'logger'
@@ -114,13 +113,13 @@ module Klaxon
       recipients.each do |notifier_key, recipient_list|
         if notifier = Klaxon::Notifiers[notifier_key]
           notifier.notify(recipient_list, alert)
-          Klaxon::Alert.logger.info { "Notification sent to #{recipient_list.inspect} via #{notifier_key} for alert #{alert.id}." }
+          Klaxon.logger.info { "Notification sent to #{recipient_list.inspect} via #{notifier_key} for alert #{alert.id}." }
         else
-          Klaxon::Alert.logger.error { "Raised alert with ID=#{alert_id} for notifier #{notifier_key} but couldn't find that notifier." }
+          Klaxon.logger.error { "Raised alert with ID=#{alert_id} for notifier #{notifier_key} but couldn't find that notifier." }
         end
       end
     rescue ActiveRecord::RecordNotFound
-      Klaxon::Alert.logger.error { "Raised alert with ID=#{alert_id} but couldn't find that alert." }
+      Klaxon.logger.error { "Raised alert with ID=#{alert_id} but couldn't find that alert." }
     end
   end
 

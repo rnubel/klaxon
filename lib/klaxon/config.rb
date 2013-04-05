@@ -22,7 +22,7 @@ module Klaxon
     def logger
       @logger ||= Rails.logger
     rescue NameError, NoMethodError => e
-      ok =  [ /^uninitialized constant Rails$/,
+      ok =  [ /^uninitialized constant .*Rails$/,
               /^undefined method `logger'/
             ].any?{|regex| e.message =~ regex }
       raise unless ok

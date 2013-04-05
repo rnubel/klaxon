@@ -17,6 +17,7 @@ describe Klaxon do
   before do
     Klaxon.configure do |c|
       c.recipient_groups = recipient_groups
+      c.logger = Logger.new('/dev/null')
     end
   end
 
@@ -215,7 +216,7 @@ describe Klaxon do
     it "should raise an error for an unknown Notifier" do
       Klaxon::Alert.expects(:find).with(5).returns(alert)
       Klaxon.expects(:recipients).returns({:raven => "Cersei"})
-      Klaxon::Alert.logger.expects(:error)
+      Klaxon.logger.expects(:error)
       Klaxon::NotificationJob.perform(5)
     end
 

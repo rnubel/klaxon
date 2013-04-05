@@ -2,19 +2,21 @@ require 'spec_helper'
 
 describe Klaxon do
   let(:alert_options) do
-    { :severity => :critical, 
-      :message => "Raised by someone", 
+    { :severity => :critical,
+      :message => "Raised by someone",
       :category => :real_important_job   }
+  end
+
+  let(:recipient_groups) do
+    [ {:category => /.*/, :severity => /.*/, :recipients => ["x@y.com", "z@w.com"]},
+      {:category => /^test$/, :severity => /(high|low)/, :recipients => ["a@b.com", "z@w.com"], :notifier => :email},
+      {:category => /^test$/, :severity => /(high|low)/, :recipients => ["1234567890"], :notifier => :text_message}
+    ]
   end
 
   before do
     Klaxon.configure do |c|
-      c.from_address      = "webdude@example.net"
-      c.recipient_groups  = [
-        {:category => /.*/, :severity => /.*/, :recipients => ["x@y.com", "z@w.com"]},
-        {:category => /^test$/, :severity => /(high|low)/, :recipients => ["a@b.com", "z@w.com"], :notifier => :email},
-        {:category => /^test$/, :severity => /(high|low)/, :recipients => ["1234567890"], :notifier => :text_message}
-      ]
+      c.recipient_groups = recipient_groups
     end
   end
 
@@ -53,25 +55,22 @@ describe Klaxon do
   end
 
   describe "being configured" do
-    let(:groups) { [] }
-
     it "wipes old configuration" do
       Klaxon.configure do |c|
         c.recipient_groups = []
       end
 
       Klaxon.configure { }
-
       Klaxon.config.recipient_groups.should be_nil
     end
 
     describe "#recipient_groups=" do
       it "can set the list of recipient groups directly" do
         Klaxon.configure do |c|
-          c.recipient_groups = groups
+          c.recipient_groups = recipient_groups
         end
 
-        Klaxon.config.recipient_groups.should == groups
+        Klaxon.config.recipient_groups.should == recipient_groups
       end
     end
 
@@ -82,7 +81,7 @@ describe Klaxon do
         end
 
         Klaxon.config.recipient_groups.should == [
-          { :severity => /critical/, :recipients => ["rnubel@test.com"], :notifier => :email } 
+          { :severity => /critical/, :recipients => ["rnubel@test.com"], :notifier => :email }
         ]
       end
 
@@ -92,7 +91,7 @@ describe Klaxon do
         end
 
         Klaxon.config.recipient_groups.should == [
-          { :severity => /critical/, :recipients => ["rnubel@test.com"], :notifier => :email } 
+          { :severity => /critical/, :recipients => ["rnubel@test.com"], :notifier => :email }
         ]
       end
 
@@ -102,8 +101,20 @@ describe Klaxon do
         end
 
         Klaxon.config.recipient_groups.should == [
-          { :severity => /critical/, :recipients => ["rnubel@test.com"], :notifier => :email } 
+          { :severity => /critical/, :recipients => ["rnubel@test.com"], :notifier => :email }
         ]
+      end
+
+      it 'has a default queue' do
+        Klaxon.configure { }
+        Klaxon.config.queue.should_not be_nil
+      end
+
+      it 'can be confgiured with a default from_address' do
+        Klaxon.configure do |c|
+          c.from_address = "webdude@example.net"
+        end
+        Klaxon.config.from_address.should == "webdude@example.net"
       end
     end
   end
@@ -158,7 +169,7 @@ describe Klaxon do
           :backtrace  =>  exception.backtrace.join("\n"),
           :severity   =>  alert_options[:severity].to_s,
           :message    =>  alert_options[:message].to_s,
-          :category   =>  alert_options[:category].to_s 
+          :category   =>  alert_options[:category].to_s
         )).returns(stub("alert", :id => 1))
         alert
       end
@@ -178,6 +189,7 @@ describe Klaxon do
 
   describe Klaxon::NotificationJob do
     let(:alert) { stub("alert", :id => 5, :category => "test", :severity => "test", :message => "test", :exception => nil, :backtrace => nil) }
+    before { Mail::TestMailer.deliveries.clear }
 
     it "locates the alert by id" do
       Alert.expects(:find).with(5).returns(alert)
@@ -189,6 +201,15 @@ describe Klaxon do
       Klaxon.expects(:recipients).with(alert).returns( :email => ["a@b.com"] )
       Klaxon::Notifiers[:email].expects(:notify).with(["a@b.com"], alert)
       Klaxon::NotificationJob.perform(5)
+    end
+
+    it 'will use the first email address as the sender when from_address is not present' do
+      Alert.expects(:find).with(5).returns(alert)
+      Klaxon.expects(:recipients).with(alert).returns( :email => ["a@b.com", "x@y.com"] )
+      Klaxon::NotificationJob.perform(5)
+
+      em = Mail::TestMailer.deliveries.first
+      em.from.should include("a@b.com")
     end
 
     it "should raise an error for an unknown Notifier" do

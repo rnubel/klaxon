@@ -8,7 +8,7 @@ Mail.defaults do
   delivery_method :test
 end
 
-class Alert
+class Klaxon::Alert
   def id
     1
   end

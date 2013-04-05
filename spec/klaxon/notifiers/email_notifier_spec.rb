@@ -2,9 +2,9 @@ require 'spec_helper'
 
 describe Klaxon::Notifiers::EmailNotifier do
   let(:alert) {
-    stub("Alert", :id => 1, :category => 'category', :severity => 'severity',
-                            :message => 'message', :exception => 'exception',
-                            :backtrace => 'backtrace')
+    stub("Klaxon::Alert", :id => 1, :category => 'category', :severity => 'severity',
+                          :message => 'message', :exception => 'exception',
+                          :backtrace => 'backtrace')
   }
 
   describe "notifying" do

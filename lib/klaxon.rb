@@ -15,9 +15,9 @@ module Klaxon
   # @option options :message any info attached to this notification
   # @option options :category totally arbitrary, but escalation can be configured based on
   # this field.
-  # @return [Alert] the created alert
+  # @return [Klaxon::Alert] the created alert
   def self.raise_alert(exception, options={})
-    alert = Alert.create(
+    alert = Klaxon::Alert.create(
       :exception => exception && exception.to_s,
       :backtrace => exception && exception.backtrace.join("\n"),
       :severity => options[:severity].to_s || "",
@@ -108,19 +108,19 @@ module Klaxon
 
     # Look up the given alert and notify recipients of it.
     def self.perform(alert_id)
-      alert = Alert.find(alert_id)
+      alert = Klaxon::Alert.find(alert_id)
       recipients = Klaxon.recipients(alert)
 
       recipients.each do |notifier_key, recipient_list|
         if notifier = Klaxon::Notifiers[notifier_key]
           notifier.notify(recipient_list, alert)
-          Alert.logger.info { "Notification sent to #{recipient_list.inspect} via #{notifier_key} for alert #{alert.id}." }
+          Klaxon::Alert.logger.info { "Notification sent to #{recipient_list.inspect} via #{notifier_key} for alert #{alert.id}." }
         else
-          Alert.logger.error { "Raised alert with ID=#{alert_id} for notifier #{notifier_key} but couldn't find that notifier." }
+          Klaxon::Alert.logger.error { "Raised alert with ID=#{alert_id} for notifier #{notifier_key} but couldn't find that notifier." }
         end
       end
     rescue ActiveRecord::RecordNotFound
-      Alert.logger.error { "Raised alert with ID=#{alert_id} but couldn't find that alert." }
+      Klaxon::Alert.logger.error { "Raised alert with ID=#{alert_id} but couldn't find that alert." }
     end
   end
 

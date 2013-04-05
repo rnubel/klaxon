@@ -22,7 +22,7 @@ describe Klaxon do
 
   context "when an exception has already been rescued" do
     it "raises an alert" do
-      Alert.expects(:create).returns(stub("alert", :id => 1))
+      Klaxon::Alert.expects(:create).returns(stub("alert", :id => 1))
 
       begin
         raise "Testing"
@@ -162,9 +162,9 @@ describe Klaxon do
       Klaxon.raise_alert(exception, alert_options)
     end
 
-    describe "the created Alert object" do
+    describe "the created Klaxon::Alert object" do
       it "is created with appropriate fields" do
-        Alert.expects(:create).with(has_entries(
+        Klaxon::Alert.expects(:create).with(has_entries(
           :exception  =>  exception.to_s,
           :backtrace  =>  exception.backtrace.join("\n"),
           :severity   =>  alert_options[:severity].to_s,
@@ -192,19 +192,19 @@ describe Klaxon do
     before { Mail::TestMailer.deliveries.clear }
 
     it "locates the alert by id" do
-      Alert.expects(:find).with(5).returns(alert)
+      Klaxon::Alert.expects(:find).with(5).returns(alert)
       Klaxon::NotificationJob.perform(5)
     end
 
     it "uses the associated notifier to alert recipients" do
-      Alert.expects(:find).with(5).returns(alert)
+      Klaxon::Alert.expects(:find).with(5).returns(alert)
       Klaxon.expects(:recipients).with(alert).returns( :email => ["a@b.com"] )
       Klaxon::Notifiers[:email].expects(:notify).with(["a@b.com"], alert)
       Klaxon::NotificationJob.perform(5)
     end
 
     it 'will use the first email address as the sender when from_address is not present' do
-      Alert.expects(:find).with(5).returns(alert)
+      Klaxon::Alert.expects(:find).with(5).returns(alert)
       Klaxon.expects(:recipients).with(alert).returns( :email => ["a@b.com", "x@y.com"] )
       Klaxon::NotificationJob.perform(5)
 
@@ -213,14 +213,14 @@ describe Klaxon do
     end
 
     it "should raise an error for an unknown Notifier" do
-      Alert.expects(:find).with(5).returns(alert)
+      Klaxon::Alert.expects(:find).with(5).returns(alert)
       Klaxon.expects(:recipients).returns({:raven => "Cersei"})
-      Alert.logger.expects(:error)
+      Klaxon::Alert.logger.expects(:error)
       Klaxon::NotificationJob.perform(5)
     end
 
     it "should not raise an exception if the alert isn't found (otherwise, possible recursion)" do
-      Alert.expects(:find).with(5).raises(ActiveRecord::RecordNotFound)
+      Klaxon::Alert.expects(:find).with(5).raises(ActiveRecord::RecordNotFound)
       lambda {
         Klaxon::NotificationJob.perform(5)
       }.should_not raise_error

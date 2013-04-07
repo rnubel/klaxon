@@ -176,13 +176,25 @@ describe Klaxon do
       end
     end
 
-    it "should enqueue a notification job in Resque" do
+    it "should enqueue a notification job in Resque by default" do
       Resque.expects(:enqueue).with(Klaxon::NotificationJob, is_a(Integer))
+      Klaxon.expects(:sound).never
+      alert
+    end
+
+    it "should sound an alert immediately when asked" do
+      Resque.expects(:enqueue).never
+      Klaxon.expects(:sound).once
+      alert_options[:urgent] = true
       alert
     end
 
     it "does not explode if Resque.enqueue fails" do
       Resque.expects(:enqueue).raises("Blah")
+
+      ## once for the original alert, once for resque
+      Klaxon.expects(:sound).twice
+
       expect { alert }.to_not raise_error
     end
 

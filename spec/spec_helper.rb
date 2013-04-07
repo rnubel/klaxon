@@ -13,6 +13,12 @@ class Klaxon::Alert
     1
   end
 
+  def category
+  end
+
+  def severity
+  end
+
   def self.create(*args)
     self.new
   end

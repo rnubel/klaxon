@@ -16,18 +16,14 @@ module Klaxon
   # this field.
   # @return [Klaxon::Alert] the created alert
   def self.raise_alert(exception, options={})
-    alert = Klaxon::Alert.create(
-      :exception => exception && exception.to_s,
-      :backtrace => exception && exception.backtrace.join("\n"),
-      :severity => options[:severity].to_s || "",
-      :message => options[:message].to_s || "",
-      :category => options[:category].to_s || "uncategorized"
-    )
+    urgent = options.delete(:now) || options.delete(:urgent) || options.delete(:synchronous)
+    alert  = alert_for(exception, options)
 
     begin
-      Resque.enqueue(NotificationJob, alert.id)
-    rescue
-      logger.error "[Klaxon] Enqueuing alert job into Resque failed!"
+      urgent ? sound(alert) : queue(alert)
+    rescue => e
+      sound cannot_enqueue_alert(e)
+      sound alert
     end
 
     alert
@@ -107,23 +103,51 @@ module Klaxon
 
     # Look up the given alert and notify recipients of it.
     def self.perform(alert_id)
-      alert = Klaxon::Alert.find(alert_id)
-      recipients = Klaxon.recipients(alert)
-
-      recipients.each do |notifier_key, recipient_list|
-        if notifier = Klaxon::Notifiers[notifier_key]
-          notifier.notify(recipient_list, alert)
-          Klaxon.logger.info { "Notification sent to #{recipient_list.inspect} via #{notifier_key} for alert #{alert.id}." }
-        else
-          Klaxon.logger.error { "Raised alert with ID=#{alert_id} for notifier #{notifier_key} but couldn't find that notifier." }
-        end
-      end
+      Klaxon.sound(alert_id)
     rescue ActiveRecord::RecordNotFound
       Klaxon.logger.error { "Raised alert with ID=#{alert_id} but couldn't find that alert." }
     end
+
   end
 
   private
+
+  def self.sound(alert)
+    alert = Klaxon::Alert.find(alert) unless alert.is_a?(Klaxon::Alert)
+    recipients = Klaxon.recipients(alert)
+
+    recipients.each do |notifier_key, recipient_list|
+      if notifier = Klaxon::Notifiers[notifier_key]
+        notifier.notify(recipient_list, alert)
+        Klaxon.logger.info { "Notification sent to #{recipient_list.inspect} via #{notifier_key} for alert #{alert.id}." }
+      else
+        Klaxon.logger.error { "Raised alert with ID=#{alert_id} for notifier #{notifier_key} but couldn't find that notifier." }
+      end
+    end
+  end
+
+  def self.alert_for(exception, options = {})
+    alert = Klaxon::Alert.create(
+      :exception => exception && exception.to_s,
+      :backtrace => exception && exception.backtrace.join("\n"),
+      :severity => options[:severity].to_s || "",
+      :message => options[:message].to_s || "",
+      :category => options[:category].to_s || "uncategorized"
+    )
+  end
+
+  def self.queue(alert)
+    alert = Klaxon::Alert.find(alert) unless alert.is_a?(Klaxon::Alert)
+    Resque.enqueue(NotificationJob, alert.id)
+  end
+
+  def self.cannot_enqueue_alert(exception=nil)
+    logger.error "[Klaxon] Enqueuing alert job into Resque failed!"
+    alert_for exception, :severity => "critical",
+                         :message => "[Klaxon] Enqueuing alert job into Resque failed!",
+                         :category => "system"
+  end
+
   def self.alert_matches_group(alert, group)
     alert.category =~ Regexp.new(group[:category] || '.*') && 
     alert.severity =~ Regexp.new(group[:severity] || '.*')

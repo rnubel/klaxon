@@ -192,7 +192,7 @@ describe Klaxon do
     it "does not explode if Resque.enqueue fails" do
       Resque.expects(:enqueue).raises("Blah")
 
-      ## once for the original alert, once for resque
+      ## once for the original alert, once for queuing failure
       Klaxon.expects(:sound).twice
 
       expect { alert }.to_not raise_error
@@ -225,11 +225,28 @@ describe Klaxon do
       em.from.should include("a@b.com")
     end
 
-    it "should raise an error for an unknown Notifier" do
+    it "should log an error for an unknown notifier" do
       Klaxon::Alert.expects(:find).with(5).returns(alert)
       Klaxon.expects(:recipients).returns({:raven => "Cersei"})
       Klaxon.logger.expects(:error)
       Klaxon::NotificationJob.perform(5)
+    end
+
+    context "empty recipient list" do
+      before do
+        Klaxon::Alert.expects(:find).with(5).returns(alert)
+        Klaxon.expects(:recipients).returns({:email => []})
+      end
+
+      after { Klaxon::NotificationJob.perform(5) }
+
+      it "should not attempt notification" do
+        Klaxon::Notifiers[:email].expects(:notify).never
+      end
+
+      it "should log an error" do
+        Klaxon.logger.expects(:error)
+      end
     end
 
     it "should not raise an exception if the alert isn't found (otherwise, possible recursion)" do

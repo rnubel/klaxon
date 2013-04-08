@@ -117,11 +117,15 @@ module Klaxon
     recipients = Klaxon.recipients(alert)
 
     recipients.each do |notifier_key, recipient_list|
-      if notifier = Klaxon::Notifiers[notifier_key]
+      notifier = Klaxon::Notifiers[notifier_key]
+
+      if notifier && recipient_list.any?
         notifier.notify(recipient_list, alert)
         Klaxon.logger.info { "Notification sent to #{recipient_list.inspect} via #{notifier_key} for alert #{alert.id}." }
-      else
-        Klaxon.logger.error { "Raised alert with ID=#{alert_id} for notifier #{notifier_key} but couldn't find that notifier." }
+      elsif recipient_list.empty?
+        Klaxon.logger.error { "No recipients associated with alert: \n #{alert.inspect}" }
+      elsif notifier.nil?
+        Klaxon.logger.error { "Raised alert with ID=#{alert.id} for unregistered notifier '#{notifier_key}'." }
       end
     end
   end

@@ -13,9 +13,11 @@ Severity: #{alert.severity}
 Exception: #{alert.exception}
 Backtrace: #{alert.backtrace}
         ";
-        
+
+        from_address = Klaxon.config.from_address || recipients.first
+
         Mail.deliver do
-          from    Klaxon.config.from_address 
+          from    from_address
           to      recipients.join(", ")
           subject "[Klaxon] [#{alert.severity}] #{alert.message} (#{alert.category})"
           body    _body

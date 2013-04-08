@@ -2,9 +2,9 @@ require 'spec_helper'
 
 describe Klaxon::Notifiers::EmailNotifier do
   let(:alert) {
-    stub("Alert", :id => 1, :category => 'category', :severity => 'severity',
-                            :message => 'message', :exception => 'exception',
-                            :backtrace => 'backtrace')
+    stub("Klaxon::Alert", :id => 1, :category => 'category', :severity => 'severity',
+                          :message => 'message', :exception => 'exception',
+                          :backtrace => 'backtrace')
   }
 
   describe "notifying" do
@@ -19,7 +19,7 @@ describe Klaxon::Notifiers::EmailNotifier do
     it "uses the Mail gem to send an alert" do
       described_class.notify(["a@b.com"], alert)
     end
-    
+
     describe "the sent email" do
       let(:message) { Mail::TestMailer.deliveries.first }
       let(:body) { message.body.decoded }
@@ -33,7 +33,6 @@ describe Klaxon::Notifiers::EmailNotifier do
       end
 
       it "has a body including all fields" do
-        puts body
         body.should =~ /severity/
         body.should =~ /message/
         body.should =~ /category/

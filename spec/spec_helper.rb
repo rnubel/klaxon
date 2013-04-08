@@ -1,4 +1,3 @@
-require 'logger'
 require File.expand_path("../../lib/klaxon", __FILE__)
 
 RSpec.configure do |c|
@@ -9,9 +8,15 @@ Mail.defaults do
   delivery_method :test
 end
 
-class Alert
+class Klaxon::Alert
   def id
     1
+  end
+
+  def category
+  end
+
+  def severity
   end
 
   def self.create(*args)

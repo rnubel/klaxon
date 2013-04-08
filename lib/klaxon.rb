@@ -1,9 +1,9 @@
 require "klaxon/version"
 require "klaxon/notifiers"
 require "klaxon/config"
-require "klaxon/railtie"
 
 require "active_record/errors" 
+require 'logger'
 
 # Library for escalating and logging errors.
 module Klaxon
@@ -14,23 +14,27 @@ module Klaxon
   # @option options :message any info attached to this notification
   # @option options :category totally arbitrary, but escalation can be configured based on
   # this field.
-  # @return [Alert] the created alert
+  # @return [Klaxon::Alert] the created alert
   def self.raise_alert(exception, options={})
-    alert = Alert.create(
-      :exception => exception && exception.to_s,
-      :backtrace => exception && exception.backtrace.join("\n"),
-      :severity => options[:severity].to_s || "",
-      :message => options[:message].to_s || "",
-      :category => options[:category].to_s || "uncategorized"
-    )
+    urgent = options.delete(:now) || options.delete(:urgent) || options.delete(:synchronous)
+    alert  = alert_for(exception, options)
 
-    Resque.enqueue(NotificationJob, alert.id)
+    begin
+      urgent ? sound(alert) : queue(alert)
+    rescue => e
+      sound cannot_enqueue_alert(e)
+      sound alert
+    end
 
     alert
   end
 
-  # Synonym for raise_alert when no exception is involved.
+  # Synonyms for raise_alert when no exception is involved.
   def self.notify(options)
+    self.raise_alert(nil, {:severity => "notification"}.merge(options))
+  end
+
+  def self.warn!(options)
     self.raise_alert(nil, options)
   end
 
@@ -61,6 +65,8 @@ module Klaxon
     # recipients:
     # - rnubel@test.com
     # notifier: email
+    return {} unless config.recipient_groups
+
     recipients_per_notifier = config.recipient_groups.inject({}) do |rec_lists, group|
       if alert_matches_group(alert, group)
         notifier = group[:notifier] || Klaxon::Notifiers.default_notifier
@@ -83,30 +89,69 @@ module Klaxon
     @config ||= Klaxon::Config.new
   end
 
+  def self.queue
+    @queue ||= config.queue
+  end
+
+  def self.logger
+    @logger ||= config.logger
+  end
+
   # Job to notify admins via email of a problem.
   class NotificationJob
-    class NotifierNotFound < StandardError; end
-    @queue = :high
+    @queue = Klaxon.queue
 
     # Look up the given alert and notify recipients of it.
     def self.perform(alert_id)
-      alert = Alert.find(alert_id) 
-      recipients = Klaxon.recipients(alert)
-
-      recipients.each do |notifier_key, recipient_list|
-        raise NotifierNotFound unless notifier = Klaxon::Notifiers[notifier_key]
-        notifier.notify(recipient_list, alert)
-        Alert.logger.info { "Notification sent to #{recipient_list.inspect} via #{notifier_key} for alert #{alert.id}." }
-      end
-      #KlaxonMailer.alert().deliver
+      Klaxon.sound(alert_id)
     rescue ActiveRecord::RecordNotFound
-      Alert.logger.error { "Raised alert with ID=#{alert_id} but couldn't find that alert." }
-    rescue NotifierNotFound
-      Alert.logger.error { "Raised alert with ID=#{alert_id} for notifier #{notifier_key} but couldn't find that notifier." }
+      Klaxon.logger.error { "Raised alert with ID=#{alert_id} but couldn't find that alert." }
     end
+
   end
 
   private
+
+  def self.sound(alert)
+    alert = Klaxon::Alert.find(alert) unless alert.is_a?(Klaxon::Alert)
+    recipients = Klaxon.recipients(alert)
+
+    recipients.each do |notifier_key, recipient_list|
+      notifier = Klaxon::Notifiers[notifier_key]
+
+      if notifier && recipient_list.any?
+        notifier.notify(recipient_list, alert)
+        Klaxon.logger.info { "Notification sent to #{recipient_list.inspect} via #{notifier_key} for alert #{alert.id}." }
+      elsif recipient_list.empty?
+        Klaxon.logger.error { "No recipients associated with alert: \n #{alert.inspect}" }
+      elsif notifier.nil?
+        Klaxon.logger.error { "Raised alert with ID=#{alert.id} for unregistered notifier '#{notifier_key}'." }
+      end
+    end
+  end
+
+  def self.alert_for(exception, options = {})
+    alert = Klaxon::Alert.create(
+      :exception => exception && exception.to_s,
+      :backtrace => exception && exception.backtrace.join("\n"),
+      :severity => options[:severity].to_s || "",
+      :message => options[:message].to_s || "",
+      :category => options[:category].to_s || "uncategorized"
+    )
+  end
+
+  def self.queue(alert)
+    alert = Klaxon::Alert.find(alert) unless alert.is_a?(Klaxon::Alert)
+    Resque.enqueue(NotificationJob, alert.id)
+  end
+
+  def self.cannot_enqueue_alert(exception=nil)
+    logger.error "[Klaxon] Enqueuing alert job into Resque failed!"
+    alert_for exception, :severity => "critical",
+                         :message => "[Klaxon] Enqueuing alert job into Resque failed!",
+                         :category => "system"
+  end
+
   def self.alert_matches_group(alert, group)
     alert.category =~ Regexp.new(group[:category] || '.*') && 
     alert.severity =~ Regexp.new(group[:severity] || '.*')
